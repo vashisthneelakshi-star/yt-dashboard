@@ -1,0 +1,29 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum UserRole { ADMIN INCHARGE PRODUCER VIDEO_EDITOR GRAPHIC_DESIGNER }
+enum UserStatus { ACTIVE INACTIVE SUSPENDED }
+enum VideoFormat { SHORT LONG }
+enum VideoCategory { VO BYTE AI INTERVIEW GROUND_REPORT SPECIAL OTHER }
+enum ContributionRole { PRODUCER VIDEO_EDITOR GRAPHIC_DESIGNER }
+enum ImportStatus { SUCCESS PARTIAL FAILED }
+enum AuditAction { CREATE UPDATE DELETE LOGIN LOGOUT PASSWORD_CHANGE PASSWORD_RESET BULK_IMPORT SETTINGS_CHANGE }
+
+model State { id String @id @default(cuid()) name String @unique code String @unique isActive Boolean @default(true) createdAt DateTime @default(now()) branches Branch[] users User[] }
+model Branch { id String @id @default(cuid()) name String code String stateId String isActive Boolean @default(true) createdAt DateTime @default(now()) state State @relation(fields:[stateId],references:[id]) editions Edition[] users User[] @@unique([code,stateId]) }
+model Edition { id String @id @default(cuid()) name String code String branchId String isActive Boolean @default(true) createdAt DateTime @default(now()) branch Branch @relation(fields:[branchId],references:[id]) users User[] }
+model Department { id String @id @default(cuid()) name String @unique isActive Boolean @default(true) createdAt DateTime @default(now()) users User[] }
+
+model User {
+  id String @id @default(cuid()) employeeId String? @unique name String username String @unique email String? @unique mobile String? passwordHash String role UserRole status UserStatus @default(ACTIVE) mustChangePassword Boolean @default(false) stateId String? branchId String? editionId String? departmentId String? inchargeId String? joiningDate DateTime? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt
+  state State? @relation(fields:[stateId],references:[id]) branch Branch? @relation(fields:[branchId],references:[id]) edition Edition? @relation(fields:[editionId],references:[id]) department Department? @relation(fields:[departmentId],references:[id]) incharge User? @relation("InchargeTeam",fields:[inchargeId],references:[id]) team User[] @relation("InchargeTeam") videoEntries VideoEntry[] activityLogs ActivityLog[] auditLogs AuditLog[] @relation("AuditUser") importLogs ImportLog[] targets Target[]
+}
+
+model VideoEntry { id String @id @default(cuid()) userId String date DateTime videoTitle String youtubeUrl String youtubeVideoId String? format VideoFormat category VideoCategory contributionRole ContributionRole remarks String? thumbnailUrl String? channelName String? uploadedAt DateTime? duration String? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt user User @relation(fields:[userId],references:[id]) analytics YoutubeAnalytics[] }
+model YoutubeAnalytics { id String @id @default(cuid()) videoEntryId String @unique youtubeVideoId String views BigInt @default(0) likes Int @default(0) comments Int @default(0) fetchedAt DateTime @default(now()) updatedAt DateTime @updatedAt videoEntry VideoEntry @relation(fields:[videoEntryId],references:[id],onDelete:Cascade) history YoutubeAnalyticsHistory[] }
+model YoutubeAnalyticsHistory { id String @id @default(cuid()) analyticsId String views BigInt likes Int comments Int recordedAt DateTime @default(now()) analytics YoutubeAnalytics @relation(fields:[analyticsId],references:[id],onDelete:Cascade) }
+model Target { id String @id @default(cuid()) userId String month Int year Int shortTarget Int @default(0) longTarget Int @default(0) totalTarget Int @default(0) viewTarget BigInt @default(0) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt user User @relation(fields:[userId],references:[id]) @@unique([userId,month,year]) }
+model ActivityLog { id String @id @default(cuid()) userId String event String device String? ipAddress String? createdAt DateTime @default(now()) user User @relation(fields:[userId],references:[id],onDelete:Cascade) }
+model AuditLog { id String @id @default(cuid()) userId String action AuditAction resource String resourceId String? oldValue Json? newValue Json? ipAddress String? createdAt DateTime @default(now()) user User @relation("AuditUser",fields:[userId],references:[id]) }
+model ImportLog { id String @id @default(cuid()) userId String filename String totalRows Int successRows Int failedRows Int status ImportStatus errorDetails Json? createdAt DateTime @default(now()) user User @relation(fields:[userId],references:[id]) }
+model Setting { id String @id @default(cuid()) key String @unique value String updatedAt DateTime @updatedAt }
